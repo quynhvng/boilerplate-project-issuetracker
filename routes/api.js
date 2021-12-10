@@ -17,6 +17,9 @@ const issueSchema = new mongoose.Schema({
 });
 const Issue = new mongoose.model('Issue', issueSchema);
 
+// clear test data, to reset test in case of failures
+//Issue.deleteMany({ project: 'test' }).exec();
+
 module.exports = function (app) {
 
   app.route('/api/issues/:project')
@@ -28,8 +31,7 @@ module.exports = function (app) {
       queries.project = project;
 
       Issue.find(queries, function (err, docs) {
-        if (err) next(err);
-        if (!docs) next();
+        if (err) return next(err);
         res.json(docs);
       });
     })
@@ -38,29 +40,60 @@ module.exports = function (app) {
       const project = req.params.project;
       let doc = req.body;
       doc.project = project;
-      if (!(doc.issue_title && doc.issue_text && doc.created_by)) next();
+      if (!(doc.issue_title && doc.issue_text && doc.created_by)) {
+        res.json({ error: 'required field(s) missing' });
+        return next();
+      }
       Issue.create(doc, function (err, newdoc) {
-        if (err) next(err);
+        if (err) return next(err);
         res.json(newdoc);
       })
     })
     
     .put(function (req, res, next) {
       //const project = req.params.project; //flat schema, no need
-      const doc = req.body;
-      const {_id, ...update} = doc;
+      let doc = {};
+      // filter fields with empty string
+      Object.keys(req.body).forEach(k => {
+        if (req.body[k] != '') {
+          doc[k] = req.body[k];
+        }
+      })
+      let {_id, ...update} = doc;
+      if (Object.keys(update).length == 0 && _id) {
+        res.json({ error: 'no update field(s) sent', _id });
+        return next();
+      } else if (!_id) {
+        res.json({ error: 'missing _id' });
+        return next();
+      }
+      update.updated_on = new Date().toISOString();
       Issue.findByIdAndUpdate(_id, update, { new: true }, function (err, newdoc) {
-        if (err) next(err);
-        res.json(newdoc);
+        if (!err && newdoc) {
+          res.json({ result: 'successfully updated', _id });
+          return next();
+        } else {
+          res.json({ error: 'could not update', _id });
+          return next();
+        }
       })
     })
     
     .delete(function (req, res, next){
       //const project = req.params.project; //flat schema, no need
       const _id = req.body._id;
+      if (!_id) {
+        res.json({ error: 'missing _id' });
+        return next();
+      }
       Issue.findByIdAndDelete(_id, function (err, doc) {
-        if (err) next(err);
-        res.json(doc);
+        if (!err && doc) {
+          res.json({ result: 'successfully deleted', _id });
+          return next();
+        } else {
+          res.json({ error: 'could not delete', _id });
+          return next();
+        }
       })
     })
     

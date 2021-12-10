@@ -16,7 +16,8 @@ const modelDoc = {
   created_by: 'Joe',
   assigned_to: 'Joe',
   open: true,
-  status_text: 'In QA'
+  status_text: 'In QA',
+  __v: 0
 };
 
 suite('Functional Tests', function () {
@@ -38,11 +39,15 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.hasAllKeys(res.json, modelDoc);
-        for (const [key, val] of Object.entries(res.json)) {
-          assert.isOk(val);
+        assert.hasAllKeys(res.body, modelDoc);
+        for (const [key, val] of Object.entries(res.body)) {
+          if (key == '__v') {
+            continue;
+          } else {
+            assert.isOk(val);
+          }
         };
-        currentDocs.push(res.json);
+        currentDocs.push(res.body);
         done();
       })
   })
@@ -60,15 +65,17 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.hasAllKeys(res.json, modelDoc);
-        for (const [key, val] of Object.entries(res.json)) {
-          if (['assigned_to', 'status_text'].includes(key)) {
+        assert.hasAllKeys(res.body, modelDoc);
+        for (const [key, val] of Object.entries(res.body)) {
+          if (key == '__v') {
+            continue;
+          } else if (['assigned_to', 'status_text'].includes(key)) {
             assert.isNotOk(val);
           } else {
             assert.isOk(val);
           }
         };
-        currentDocs.push(res.json);
+        currentDocs.push(res.body);
         done();
       })
   })
@@ -85,7 +92,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, { error: 'required field(s) missing' });
+        assert.deepEqual(res.body, { error: 'required field(s) missing' });
         done();
       })
   })
@@ -97,7 +104,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, currentDocs);
+        assert.deepEqual(res.body, currentDocs);
         done();
       })
   })
@@ -109,7 +116,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, currentDocs[0]);
+        assert.deepEqual(res.body, currentDocs.filter(o => o.assigned_to == 'joe'));
         done();
       })
   })
@@ -121,7 +128,9 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, currentDocs[1]);
+        assert.deepEqual(res.body, currentDocs.filter(
+          o => o.open == true && o.created_by == 'jess' && o.issue_title == 'test'
+        ));
         done();
       })
   })
@@ -139,20 +148,11 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           result: 'successfully updated',
           _id: doc._id
         });
-        chai.request(server)
-          .get('/api/issues/test')
-          .query({ _id: doc._id })
-          .end(function (err, res) {
-            if (err) return console.log(err);
-            expect(res).to.have.status(200);
-            expect(res).to.be.json;
-            assert.notEqual(res.json.created_on, res.json.updated_on);
-            done();
-          })
+        done();
       })
   })
   // #8
@@ -170,7 +170,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           result: 'successfully updated',
           _id: doc._id
         });
@@ -189,7 +189,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           error: 'missing _id'
         });
         done();
@@ -208,7 +208,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           error: 'no update field(s) sent',
           _id: doc._id
         });
@@ -221,13 +221,14 @@ suite('Functional Tests', function () {
       .put('/api/issues/test')
       .type('form')
       .send({
-        _id: 'a123'
+        _id: 'a123',
+        open: false
       })
       .end(function (err, res) {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           error: 'could not update',
           _id: 'a123'
         });
@@ -246,7 +247,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           result: 'successfully deleted',
           _id: currentDocs[0]._id
         });
@@ -275,7 +276,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           error: 'could not delete',
           _id: 'a123'
         });
@@ -292,7 +293,7 @@ suite('Functional Tests', function () {
         if (err) return console.log(err);
         expect(res).to.have.status(200);
         expect(res).to.be.json;
-        assert.deepEqual(res.json, {
+        assert.deepEqual(res.body, {
           error: 'missing _id'
         });
         done();
