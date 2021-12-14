@@ -53,9 +53,9 @@ module.exports = function (app) {
     .put(function (req, res, next) {
       //const project = req.params.project; //flat schema, no need
       let doc = {};
-      // filter fields with empty string
+      // filter fields that are string
       Object.keys(req.body).forEach(k => {
-        if (req.body[k] != '') {
+        if (req.body[k] != '' && typeof req.body[k] === 'string') {
           doc[k] = req.body[k];
         }
       })
